@@ -1,6 +1,6 @@
 /*
    Copyright (c) 2016, The CyanogenMod Project
-   Copyright (c) 2017, The LineageOS Project
+   Copyright (c) 2019, The LineageOS Project
 
    Redistribution and use in source and binary forms, with or without
    modification, are permitted provided that the following conditions are
@@ -42,7 +42,6 @@
 
 #include "vendor_init.h"
 #include "property_service.h"
-#include "init_sdm660.h"
 
 using android::base::GetProperty;
 using android::init::property_set;
@@ -54,11 +53,6 @@ char const *heapgrowthlimit;
 char const *heapsize;
 char const *heapminfree;
 char const *heapmaxfree;
-
-#ifdef TARGET_HAVE_LIBINIT
-__attribute__ ((weak))
-void init_target_properties() {}
-#endif
 
 void property_override(char const prop[], char const value[])
 {
@@ -78,13 +72,9 @@ void property_override_dual(char const system_prop[],
     property_override(vendor_prop, value);
 }
 
-void vendor_load_properties()
+void vendor_load_persist_properties()
 {
-#ifdef TARGET_HAVE_LIBINIT
-    init_target_properties();
-#endif
-
-    std::string product = GetProperty("ro.product.name", "");
+    std::string product = GetProperty("ro.product.vendor.device", "");
     if (product.find("clover") != std::string::npos) {
 
     std::string hw_device;
@@ -97,11 +87,54 @@ void vendor_load_properties()
         property_override("ro.board.variant", "d9p");
         property_override("vendor.display.lcd_density", "265");
         property_override_dual("ro.product.model", "ro.vendor.product.model", "MI PAD 4 PLUS");
+
+        property_override ("persist.vendor.audio.calfile0","/vendor/etc/acdbdata/QRD/sdm660-snd-card-d9p/QRD_D9P_Bluetooth_cal.acdb");
+        property_override ("persist.vendor.audio.calfile1","/vendor/etc/acdbdata/QRD/sdm660-snd-card-d9p/QRD_D9P_General_cal.acdb");
+        property_override ("persist.vendor.audio.calfile2","/vendor/etc/acdbdata/QRD/sdm660-snd-card-d9p/QRD_D9P_Global_cal.acdb");
+        property_override ("persist.vendor.audio.calfile3","/vendor/etc/acdbdata/QRD/sdm660-snd-card-d9p/QRD_D9P_Handset_cal.acdb");
+        property_override ("persist.vendor.audio.calfile4","/vendor/etc/acdbdata/QRD/sdm660-snd-card-d9p/QRD_D9P_Hdmi_cal.acdb");
+        property_override ("persist.vendor.audio.calfile5","/vendor/etc/acdbdata/QRD/sdm660-snd-card-d9p/QRD_D9P_Headset_cal.acdb");
+        property_override ("persist.vendor.audio.calfile6","/vendor/etc/acdbdata/QRD/sdm660-snd-card-d9p/QRD_D9P_Speaker_cal.acdb");
+        property_override ("persist.vendor.audio.calfile7","/vendor/etc/acdbdata/QRD/sdm660-snd-card-d9p/QRD_D9P_workspaceFile.qwsp");
+        property_override ("persist.vendor.audio.calfile8","/vendor/etc/acdbdata/adsp_avs_config.acdb");
+
     } else {
         property_override("persist.sys.fp.vendor", "none");
         property_override("ro.board.variant", "d9");
         property_override("vendor.display.lcd_density", "320");
         property_override_dual("ro.product.model", "ro.vendor.product.model", "MI PAD 4");
+
+        property_override ("persist.vendor.audio.calfile0","/vendor/etc/acdbdata/QRD/sdm660-snd-card-skush/QRD_SKUSH_Bluetooth_cal.acdb");
+        property_override ("persist.vendor.audio.calfile1","/vendor/etc/acdbdata/QRD/sdm660-snd-card-skush/QRD_SKUSH_General_cal.acdb");
+        property_override ("persist.vendor.audio.calfile2","/vendor/etc/acdbdata/QRD/sdm660-snd-card-skush/QRD_SKUSH_Global_cal.acdb");
+        property_override ("persist.vendor.audio.calfile3","/vendor/etc/acdbdata/QRD/sdm660-snd-card-skush/QRD_SKUSH_Handset_cal.acdb");
+        property_override ("persist.vendor.audio.calfile4","/vendor/etc/acdbdata/QRD/sdm660-snd-card-skush/QRD_SKUSH_Hdmi_cal.acdb");
+        property_override ("persist.vendor.audio.calfile5","/vendor/etc/acdbdata/QRD/sdm660-snd-card-skush/QRD_SKUSH_Headset_cal.acdb");
+        property_override ("persist.vendor.audio.calfile6","/vendor/etc/acdbdata/QRD/sdm660-snd-card-skush/QRD_SKUSH_Speaker_cal.acdb");
+        property_override ("persist.vendor.audio.calfile7","/vendor/etc/acdbdata/QRD/sdm660-snd-card-skush/QRD_SKUSH_workspaceFile.qwsp");
+        property_override ("persist.vendor.audio.calfile8","/vendor/etc/acdbdata/adsp_avs_config.acdb");
+        
     }
+  }
+}
+void vendor_load_properties()
+{
+   std::string product = GetProperty("ro.product.vendor.device", "");	
+   if (product.find("whyred") != std::string::npos)
+   {
+  	std::string region = GetProperty("ro.boot.hwc", "");
+
+    if (region.find("CN") != std::string::npos || region.find("Global") != std::string::npos || region.find("GLOBAL") != std::string::npos)
+	{
+        property_override_dual("ro.product.model", "ro.vendor.product.model", "Redmi Note 5");
+        property_override_dual("ro.product.odm.model", "ro.product.system.model", "Redmi Note 5");
+        property_override_dual("ro.product.vendor.model", "persist.vendor.camera.exif.model", "Redmi Note 5");
+	}
+	else
+	{
+        property_override_dual("ro.product.model", "ro.vendor.product.model", "Redmi Note 5 Pro");
+        property_override_dual("ro.product.odm.model", "ro.product.system.model", "Redmi Note 5 Pro");
+        property_override_dual("ro.product.vendor.model", "persist.vendor.camera.exif.model", "Redmi Note 5 Pro");
+	}
   }
 }

@@ -53,6 +53,60 @@ on init
     chown system system /dev/lirc0
     chmod 0660 /dev/lirc0
 
+    # Create an stune group for camera-specific processes
+    mkdir /dev/stune/camera-daemon
+    write /dev/stune/camera-daemon/schedtune.prefer_idle 1
+    write /dev/stune/camera-daemon/schedtune.boost 0
+    chown system system /dev/stune/camera-daemon
+    chown system system /dev/stune/camera-daemon/tasks
+    chmod 0664 /dev/stune/camera-daemon/tasks
+
+    mkdir /dev/cpuset/system 0750 root system
+    write /dev/cpuset/system/cpus 0
+    write /dev/cpuset/system/mems 0
+    chown system system /dev/cpuset/system/tasks
+    chmod 0660 /dev/cpuset/system/tasks
+
+    mkdir /dev/cpuset/system/performance 0750 root system
+    write /dev/cpuset/system/performance/cpus 0
+    write /dev/cpuset/system/performance/mems 0
+    chown system system /dev/cpuset/system/performance/tasks
+    chmod 0660 /dev/cpuset/system/performance/tasks
+
+    mkdir /dev/cpuset/system/background 0750 root system
+    write /dev/cpuset/system/background/cpus 0
+    write /dev/cpuset/system/background/mems 0
+    chown system system /dev/cpuset/system/background/tasks
+    chmod 0660 /dev/cpuset/system/background/tasks
+
+    mkdir /dev/cpuset/application 0750 root system
+    write /dev/cpuset/application/cpus 0
+    write /dev/cpuset/application/mems 0
+    chown system system /dev/cpuset/application/tasks
+    chmod 0660 /dev/cpuset/application/tasks
+
+    mkdir /dev/cpuset/application/performance 0750 root system
+    write /dev/cpuset/application/performance/cpus 0
+    write /dev/cpuset/application/performance/mems 0
+    chown system system /dev/cpuset/application/performance/tasks
+    chmod 0660 /dev/cpuset/application/performance/tasks
+
+    mkdir /dev/cpuset/application/background 0750 root system
+    write /dev/cpuset/application/background/cpus 0
+    write /dev/cpuset/application/background/mems 0
+    chown system system /dev/cpuset/application/background/tasks
+    chmod 0660 /dev/cpuset/application/background/tasks
+
+    write /dev/cpuset/kernel/cpus 0-7
+    write /dev/cpuset/system/cpus 0-7
+    write /dev/cpuset/system/performance/cpus 0-7
+    write /dev/cpuset/system/background/cpus 0-7
+    write /dev/cpuset/system/cpus 0-7
+    write /dev/cpuset/application/cpus 0-7
+    write /dev/cpuset/application/performance/cpus 0-7
+    write /dev/cpuset/application/background/cpus 0-7
+    write /dev/cpuset/application/cpus 0-7
+
 on fs
     wait /dev/block/platform/soc/${ro.boot.bootdevice}
     symlink /dev/block/platform/soc/${ro.boot.bootdevice} /dev/block/bootdevice
@@ -68,6 +122,7 @@ on fs
     mkdir /mnt/vendor/persist/hvdcp_opti 0770 root system
     mkdir /mnt/vendor/persist/secnvm 0770 system system
     mkdir /mnt/vendor/persist/time 0770 system system
+    exec u:r:vendor_toolbox:s0 root audio bluetooth graphics media net_raw system vendor_rfs vendor_rfs_shared -- /vendor/bin/toybox_vendor find /mnt/vendor/persist -type d -exec /vendor/bin/toybox_vendor setfattr -x security.sehash {} \;
     restorecon_recursive /mnt/vendor/persist
     write /sys/kernel/boot_adsp/boot 1
     chmod 0664 /sys/class/thermal/thermal_message/sconfig
@@ -75,82 +130,68 @@ on fs
 
 on post-fs
     start vendor.qseecomd
-    exec - system system -- /vendor/bin/init.qti.qseecomd.sh
     write /dev/ipa 1
 
 on init
     write /sys/module/qpnp_rtc/parameters/poweron_alarm 1
+
+    # Start services for bootanim
+    start surfaceflinger
+    start bootanim
+    start vendor.hwcomposer-2-3
+    start vendor.configstore-hal
+    start vendor.qti.hardware.display.allocator
 
 on post-fs-data
     mkdir /data/tombstones/modem 0771 system system
     mkdir /data/tombstones/lpass 0771 system system
     mkdir /data/tombstones/wcnss 0771 system system
     mkdir /data/tombstones/dsps 0771 system system
-#D2SP has no hbtp feature
-#    mkdir /data/vendor/hbtp 0750 system system
-#end
     mkdir /vendor/mnt/persist/qti_fp 0700 system system
-    mkdir /data/misc/seemp 0700 system system
     mkdir /data/vendor/tloc 0700 system drmrpc
-
-#USB controller configuration
-    setprop vendor.usb.rndis.func.name "rndis_bam"
-    setprop vendor.usb.rmnet.func.name "rmnet_bam"
-    setprop vendor.usb.rmnet.inst.name "rmnet"
-    setprop vendor.usb.dpl.inst.name "dpl"
-    write /sys/module/usb_f_qcrndis/parameters/rndis_dl_max_xfer_size 15916
-    setprop sys.usb.configfs 1
     mkdir /data/vendor/mac_addr 0770 system system
     mkdir /data/vendor/thermal 0771 root system
     mkdir /data/vendor/thermal/config 0771 root system
 
-on boot
-    start vendor.rmt_storage
-    start rfs_access
-    write /dev/cpuset/top-app/cpus 0-7
-    write /dev/cpuset/audio-app/cpus 1-2
-    write /dev/cpuset/foreground/cpus 0-7
-    write /dev/cpuset/foreground/boost/cpus 0-7
-    write /dev/cpuset/background/cpus 0-7
-    write /dev/cpuset/system-background/cpus 0-7
-    ####Regionalization config and prop files####
-    chmod 0644 /vendor/mnt/persist/speccfg/spec
-    chmod 0644 /vendor/mnt/persist/speccfg/devicetype
-    chmod 0644 /vendor/mnt/persist/speccfg/mbnversion
-    chmod 0644 /vendor/mnt/persist/speccfg/.not_triggered
-    chmod 0644 /vendor/mnt/persist/speccfg/vendor_ro.prop
-    chmod 0644 /vendor/mnt/persist/speccfg/vendor_persist.prop
-    chmod 0644 /vendor/mnt/persist/speccfg/submask
-    chmod 0644 /vendor/mnt/persist/speccfg/partition
-    chown system system /vendor/mnt/persist/speccfg/spec
-    chown system system /vendor/mnt/persist/speccfg/devicetype
-    chown system system /vendor/mnt/persist/speccfg/mbnversion
-    chown system system /vendor/mnt/persist/speccfg/.not_triggered
-    chown system system /vendor/mnt/persist/speccfg/vendor_ro.prop
-    chown system system /vendor/mnt/persist/speccfg/vendor_persist.prop
-    chown system system /vendor/mnt/persist/speccfg/submask
-    chown system system /vendor/mnt/persist/speccfg/partition
-
-#spk pa-cal lct-20180914
-    chmod 0664 /dev/tiload_node
-
-#Create folder dump yuv images while debugging
-    mkdir /data/vendor/camera 0770 camera camera
-
-
 #USB controller configuration
     setprop vendor.usb.rndis.func.name "rndis_bam"
     setprop vendor.usb.rmnet.func.name "rmnet_bam"
     setprop vendor.usb.rmnet.inst.name "rmnet"
     setprop vendor.usb.dpl.inst.name "dpl"
-    write /sys/module/usb_f_qcrndis/parameters/rndis_dl_max_xfer_size 15916
+    setprop vendor.usb.qdss.inst.name "qdss"
+    setprop vendor.usb.controller a800000.dwc3
     setprop sys.usb.configfs 1
+    write /sys/module/usb_f_qcrndis/parameters/rndis_dl_max_xfer_size 15916
+
+on boot && property:persist.vendor.usb.controller.default=*
+    setprop vendor.usb.controller ${persist.vendor.usb.controller.default}
+
+on property:vendor.usb.controller=*
+    setprop sys.usb.controller ${vendor.usb.controller}
+    write /sys/module/usb_f_qcrndis/parameters/rndis_dl_max_xfer_size 15916
+
+on boot
+    start vendor.rmt_storage
+    write /dev/cpuset/top-app/cpus 0-7
+    write /dev/cpuset/audio-app/cpus 1-2
+    write /dev/cpuset/foreground/cpus 0-6
+    write /dev/cpuset/foreground/boost/cpus 0-7
+    write /dev/cpuset/background/cpus 0-1
+    write /dev/cpuset/system-background/cpus 0-3
+    
+    # Touchpanel
+    chown system system /sys/touchpanel/double_tap
+    chmod 0664 /sys/touchpanel/double_tap
+
+#Create folder dump yuv images while debugging
+    mkdir /data/vendor/camera 0770 camera camera
 
     # Wifi firmware reload path
     chown wifi wifi /sys/module/wlan/parameters/fwpath
 
 # default country code
-    setprop ro.boot.wificountrycode 00
+    setprop persist.sys.wifi.country_code "00"
+    setprop ro.boot.wificountrycode "00"
 
 #add for display feature
     chown system system /sys/class/graphics/fb0/msm_fb_ce
@@ -160,28 +201,6 @@ on boot
     chown system system /sys/class/graphics/fb0/msm_fb_cabc_movie
     chown system system /sys/class/graphics/fb0/msm_fb_cabc_still
     chown system system /sys/class/graphics/fb0/msm_fb_hbm
-
-# XiaomiParts
-    chown system system /sys/devices/virtual/timed_output/vibrator/vtg_level
-    chmod 0660 /sys/devices/virtual/timed_output/vibrator/vtg_level
-    chown system system /sys/module/hall/parameters/hall_toggle
-    chmod 0660 /sys/module/hall/parameters/hall_toggle
-
-# KCal
-    chown system system /sys/devices/platform/kcal_ctrl.0/kcal_cont
-    chown system system /sys/devices/platform/kcal_ctrl.0/kcal_enable
-    chown system system /sys/devices/platform/kcal_ctrl.0/kcal_hue
-    chown system system /sys/devices/platform/kcal_ctrl.0/kcal_sat
-    chown system system /sys/devices/platform/kcal_ctrl.0/kcal_val
-    chown system system /sys/devices/platform/kcal_ctrl.0/kcal_min
-    chown system system /sys/devices/platform/kcal_ctrl.0/kcal
-    chmod 660 /sys/devices/platform/kcal_ctrl.0/kcal_cont
-    chmod 660 /sys/devices/platform/kcal_ctrl.0/kcal_enable
-    chmod 660 /sys/devices/platform/kcal_ctrl.0/kcal_hue
-    chmod 660 /sys/devices/platform/kcal_ctrl.0/kcal_sat
-    chmod 660 /sys/devices/platform/kcal_ctrl.0/kcal_val
-    chmod 660 /sys/devices/platform/kcal_ctrl.0/kcal_min
-    chmod 660 /sys/devices/platform/kcal_ctrl.0/kcal
 
 #Peripheral manager
 service vendor.per_mgr /system/vendor/bin/pm-service
@@ -218,13 +237,6 @@ service vendor.thermal-engine /system/vendor/bin/thermal-engine
    socket thermal-send-rule stream 0660 system system
    group root
 
-service vendor.time_daemon /system/vendor/bin/time_daemon
-   class main
-   user system
-   group system
-   capabilities SYS_TIME
-   writepid /dev/cpuset/system-background/tasks
-
 service vendor.adsprpcd /system/vendor/bin/adsprpcd audiopd
    class main
    user media
@@ -236,34 +248,21 @@ service adsprpcd /vendor/bin/adsprpcd audiopd
    user media
    group media
 
-service vendor.imsqmidaemon /system/vendor/bin/imsqmidaemon
-    class main
-    user system
-    socket ims_qmid stream 0660 system radio
-    group radio log diag
-    writepid /dev/cpuset/system-background/tasks
-
-# imsdatadaemon starts with root and UID will be downgraded to SYSTEM.
-service vendor.imsdatadaemon /system/vendor/bin/imsdatadaemon
-    class main
-    user system
-    socket ims_datad stream 0660 system radio
-    group system wifi radio inet log diag
-    disabled
-    writepid /dev/cpuset/system-background/tasks
+service vendor.cdsprpcd /vendor/bin/cdsprpcd
+   class main
+   user system
+   group system
+   disabled
 
 service vendor.energy-awareness /system/vendor/bin/energy-awareness
-    class main
-    user system
-    group system
-    oneshot
-    writepid /dev/cpuset/system-background/tasks
+   class main
+   user system
+   group system
+   oneshot
+   writepid /dev/cpuset/system-background/tasks
 
 service vendor.pd_mapper /system/vendor/bin/pd-mapper
      class core
-
-on property:vendor.ims.QMI_DAEMON_STATUS=1
-    start vendor.imsdatadaemon
 
 on property:vold.decrypt=trigger_restart_framework
    start vendor.cnss_diag
@@ -274,22 +273,6 @@ service vendor.cnss_diag /system/vendor/bin/cnss_diag -q -f -t HELIUM
    user system
    group system wifi inet sdcard_rw media_rw diag
    oneshot
-
-service vendor.ims_rtp_daemon /system/vendor/bin/ims_rtp_daemon
-   class main
-   user system
-   group radio diag inet log
-   writepid /dev/cpuset/system-background/tasks
-
-service vendor.imsrcsservice /system/vendor/bin/imsrcsd
-   class main
-   user system
-   group radio diag inet log wakelock
-   writepid /dev/cpuset/system-background/tasks
-
-
-on property:vendor.ims.DATA_DAEMON_STATUS=1
-    restart vendor.ims_rtp_daemon
 
 service vendor.ppd /system/vendor/bin/mm-pp-dpps
     class hal
@@ -311,11 +294,9 @@ on charger
     load_system_props
     start vendor.qcom-post-boot
     start vendor.hvdcp_opti
+    setprop vendor.usb.controller a800000.dwc3
     setprop sys.usb.configfs 1
     start vendor.power_off_alarm
-
-    mount tmpfs tmpfs /data
-    restorecon_recursive /data
 
     start vendor.thermal-engine
     start charger
@@ -330,3 +311,4 @@ service vendor.hvdcp_opti /system/vendor/bin/hvdcp_opti
      user root
      group system wakelock
      writepid /dev/cpuset/system-background/tasks
+     

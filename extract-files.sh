@@ -21,32 +21,48 @@ DEVICE_COMMON=sdm660-common
 VENDOR=xiaomi
 
 # Load extract_utils and do some sanity checks
-MY_DIR="${BASH_SOURCE%/*}"
-if [[ ! -d "$MY_DIR" ]]; then MY_DIR="$PWD"; fi
+COMMON_DIR="${BASH_SOURCE%/*}"
+if [[ ! -d "$COMMON_DIR" ]]; then COMMON_DIR="$PWD"; fi
 
-LINEAGE_ROOT="$MY_DIR"/../../..
+if [[ -z "$DEVICE_DIR" ]]; then
+    DEVICE_DIR="${COMMON_DIR}/../${DEVICE}"
+fi
 
-HELPER="$LINEAGE_ROOT"/vendor/lineage/build/tools/extract_utils.sh
+ROOT="$COMMON_DIR"/../../..
+
+HELPER="$ROOT"/vendor/rr/build/tools/extract_utils.sh
 if [ ! -f "$HELPER" ]; then
     echo "Unable to find helper script at $HELPER"
     exit 1
 fi
 . "$HELPER"
 
-# default to not sanitizing the vendor folder before extraction
-clean_vendor=false
+# Default to sanitizing the vendor folder before extraction
+CLEAN_VENDOR=true
+ONLY_COMMON=false
+ONLY_DEVICE=false
 
-while [ "$1" != "" ]; do
-    case $1 in
-        -p | --path )           shift
-                                SRC=$1
-                                ;;
-        -s | --section )        shift
-                                SECTION=$1
-                                clean_vendor=false
-                                ;;
-        -c | --clean-vendor )   clean_vendor=true
-                                ;;
+while [ "${#}" -gt 0 ]; do
+    case "${1}" in
+        -o | --only-common )
+                ONLY_COMMON=true
+                ;;
+        -d | --only-device )
+                ONLY_DEVICE=true
+                ;;
+        -n | --no-cleanup )
+                CLEAN_VENDOR=false
+                ;;
+        -k | --kang )
+                KANG="--kang"
+                ;;
+        -s | --section )
+                SECTION="${2}"; shift
+                CLEAN_VENDOR=false
+                ;;
+        * )
+                SRC="${1}"
+                ;;
     esac
     shift
 done
@@ -55,23 +71,41 @@ if [ -z "$SRC" ]; then
     SRC=adb
 fi
 
+function blob_fixup() {
+    case "${1}" in
+
+    vendor/bin/mlipayd@1.1)
+        patchelf --remove-needed vendor.xiaomi.hardware.mtdservice@1.0.so "${2}"
+        ;;
+
+    vendor/lib64/libmlipay.so | vendor/lib64/libmlipay@1.1.so)
+        patchelf --remove-needed vendor.xiaomi.hardware.mtdservice@1.0.so "${2}"
+        sed -i "s|/system/etc/firmware|/vendor/firmware\x0\x0\x0\x0|g" "${2}"
+        ;;
+
+    vendor/lib/hw/camera.sdm660.so)
+        patchelf --add-needed camera.sdm660_shim.so "${2}"
+        ;;
+
+    product/etc/permissions/vendor.qti.hardware.data.connection-V1.{0,1}-java.xml)
+        sed -i 's/xml version="2.0"/xml version="1.0"/' "${2}"
+
+    esac
+}
+
 # Initialize the common helper
-setup_vendor "$DEVICE_COMMON" "$VENDOR" "$LINEAGE_ROOT" true $clean_vendor
+setup_vendor "$DEVICE_COMMON" "$VENDOR" "$ROOT" true $CLEAN_VENDOR
 
-extract "$MY_DIR"/proprietary-files.txt "$SRC" "$SECTION"
-
-if [ -s "$MY_DIR"/../$DEVICE/proprietary-files.txt ]; then
+if [[ "$ONLY_DEVICE" = "false" ]] && [[ -s "${COMMON_DIR}"/proprietary-files.txt ]]; then
+    extract "$COMMON_DIR"/proprietary-files.txt "$SRC" "${KANG}" --section "${SECTION}"
+fi
+if [[ "$ONLY_COMMON" = "false" ]] && [[ -s "${DEVICE_DIR}"/proprietary-files.txt ]]; then
+    if [[ ! "$IS_COMMON" = "true" ]]; then
+        IS_COMMON=false
+    fi
     # Reinitialize the helper for device
-    setup_vendor "$DEVICE" "$VENDOR" "$LINEAGE_ROOT" false "$CLEAN_VENDOR"
-    extract "$MY_DIR"/../$DEVICE/proprietary-files.txt "$SRC" "$SECTION"
+    setup_vendor "$DEVICE" "$VENDOR" "$ROOT" "$IS_COMMON" "$CLEAN_VENDOR"
+    extract "${DEVICE_DIR}"/proprietary-files.txt "$SRC" "${KANG}" --section "${SECTION}"
 fi
 
-"$MY_DIR"/setup-makefiles.sh
-
-DEVICE_BLOB_ROOT="$LINEAGE_ROOT"/vendor/"$VENDOR"/"$DEVICE"/proprietary
-
-patchelf --remove-needed vendor.xiaomi.hardware.mtdservice@1.0.so "$DEVICE_BLOB_ROOT"/vendor/bin/mlipayd@1.1
-patchelf --remove-needed vendor.xiaomi.hardware.mtdservice@1.0.so "$DEVICE_BLOB_ROOT"/vendor/lib64/libmlipay.so
-patchelf --remove-needed vendor.xiaomi.hardware.mtdservice@1.0.so "$BLOB_ROOT"/vendor/lib64/libmlipay@1.1.so
-sed -i "s|/system/etc/firmware|/vendor/firmware\x0\x0\x0\x0|g" "$DEVICE_BLOB_ROOT"/vendor/lib64/libmlipay.so
-sed -i "s|/system/etc/firmware|/vendor/firmware\x0\x0\x0\x0|g" "$DEVICE_BLOB_ROOT"/vendor/lib64/libmlipay@1.1.so
+"$COMMON_DIR"/setup-makefiles.sh

@@ -29,17 +29,10 @@
 #
 
 # Set platform variables
-if [ -f /sys/devices/soc0/hw_platform ]; then
-    soc_hwplatform=`cat /sys/devices/soc0/hw_platform` 2> /dev/null
-else
-    soc_hwplatform=`cat /sys/devices/system/soc/soc0/hw_platform` 2> /dev/null
-fi
-
-if [ -f /sys/devices/soc0/machine ]; then
-    soc_machine=`cat /sys/devices/soc0/machine` 2> /dev/null
-else
-    soc_machine=`cat /sys/devices/system/soc/soc0/machine` 2> /dev/null
-fi
+soc_hwplatform=`cat /sys/devices/soc0/hw_platform 2> /dev/null`
+soc_machine=`cat /sys/devices/soc0/machine 2> /dev/null`
+soc_machine=${soc_machine:0:2}
+soc_id=`cat /sys/devices/soc0/soc_id 2> /dev/null`
 
 #
 # Check ESOC for external modem
@@ -49,13 +42,8 @@ fi
 esoc_name=`cat /sys/bus/esoc/devices/esoc0/esoc_name 2> /dev/null`
 
 target=`getprop ro.board.platform`
-
-# soc_ids for 8937
-if [ -f /sys/devices/soc0/soc_id ]; then
-	soc_id=`cat /sys/devices/soc0/soc_id`
-else
-	soc_id=`cat /sys/devices/system/soc/soc0/id`
-fi
+product=`getprop ro.product.name`
+product=${product:(-4)}
 
 if [ -f /sys/class/android_usb/f_mass_storage/lun/nofua ]; then
 	echo 1  > /sys/class/android_usb/f_mass_storage/lun/nofua
@@ -65,8 +53,6 @@ fi
 # Override USB default composition
 #
 # If USB persist config not set, set default configuration
-miui_release=`getprop ro.fota.oem`
-miui_debuggable=`getprop ro.debuggable`
 if [ "$(getprop persist.vendor.usb.config)" == "" -a \
 	"$(getprop init.svc.vendor.usb-gadget-hal-1-0)" != "running" ]; then
     if [ "$esoc_name" != "" ]; then
@@ -82,10 +68,13 @@ if [ "$(getprop persist.vendor.usb.config)" == "" -a \
 	              setprop persist.vendor.usb.config diag,adb
 	          ;;
                   *)
-		  soc_machine=${soc_machine:0:3}
 		  case "$soc_machine" in
-		    "SDA")
-	              setprop persist.vendor.usb.config diag,adb
+		    "SA")
+			if [ "$product" == "gvmq" ]; then
+				setprop persist.vendor.usb.config adb
+			else
+				setprop persist.vendor.usb.config diag,adb
+			fi
 		    ;;
 		    *)
 	            case "$target" in
@@ -93,7 +82,11 @@ if [ "$(getprop persist.vendor.usb.config)" == "" -a \
 	                  setprop persist.vendor.usb.config diag,serial_cdev,serial_tty,rmnet_ipa,mass_storage,adb
 		      ;;
 	              "msm8909")
-		          setprop persist.vendor.usb.config diag,serial_smd,rmnet_qti_bam,adb
+			    if [ -d /config/usb_gadget ]; then
+				    setprop persist.vendor.usb.config diag,serial_cdev,rmnet,adb
+			    else
+				    setprop persist.vendor.usb.config diag,serial_smd,rmnet_qti_bam,adb
+			    fi
 		      ;;
 	              "msm8937")
 			    if [ -d /config/usb_gadget ]; then
@@ -101,7 +94,6 @@ if [ "$(getprop persist.vendor.usb.config)" == "" -a \
 			    else
 			               case "$soc_id" in
 				               "313" | "320")
-						  echo BAM2BAM_IPA > /sys/class/android_usb/android0/f_rndis_qc/rndis_transports
 				                  setprop persist.vendor.usb.config diag,serial_smd,rmnet_ipa,adb
 				               ;;
 				               *)
@@ -123,7 +115,7 @@ if [ "$(getprop persist.vendor.usb.config)" == "" -a \
 	              "sdm845" | "sdm710")
 		          setprop persist.vendor.usb.config diag,serial_cdev,rmnet,dpl,adb
 		      ;;
-	              "msmnile" | "talos")
+	              "msmnile" | "sm6150" | "trinket" | "lito" | "atoll" | "bengal")
 			  setprop persist.vendor.usb.config diag,serial_cdev,rmnet,dpl,qdss,adb
 		      ;;
 	              *)
@@ -139,6 +131,20 @@ if [ "$(getprop persist.vendor.usb.config)" == "" -a \
       fi
 fi
 
+# Start peripheral mode on primary USB controllers for Automotive platforms
+case "$soc_machine" in
+    "SA")
+	if [ -f /sys/bus/platform/devices/a600000.ssusb/mode ]; then
+	    default_mode=`cat /sys/bus/platform/devices/a600000.ssusb/mode`
+	    case "$default_mode" in
+		"none")
+		    echo peripheral > /sys/bus/platform/devices/a600000.ssusb/mode
+		;;
+	    esac
+	fi
+    ;;
+esac
+
 # set rndis transport to BAM2BAM_IPA for 8920 and 8940
 if [ "$target" == "msm8937" ]; then
 	if [ ! -d /config/usb_gadget ]; then
@@ -149,46 +155,28 @@ if [ "$target" == "msm8937" ]; then
 		*)
 		;;
 	   esac
-	else
-	   case "$soc_id" in
-		"313" | "320")
-		   setprop vendor.usb.rndis.func.name "rndis_bam"
-		   setprop vendor.usb.rmnet.func.name "rmnet_bam"
-		   setprop vendor.usb.rmnet.inst.name "rmnet"
-		   setprop vendor.usb.dpl.inst.name "dpl"
-		;;
-		*)
-		;;
-	   esac
 	fi
 fi
 
-# set device mode notification to USB driver for SA8150 Auto ADP
-product=`getprop ro.build.product`
-
-case "$product" in
-	"msmnile_au")
-	echo peripheral > /sys/bus/platform/devices/a600000.ssusb/mode
-         ;;
-	*)
-	;;
-esac
-
 # check configfs is mounted or not
 if [ -d /config/usb_gadget ]; then
-	# Chip-serial is used for unique MSM identification in Product string
-	msm_serial=`cat /sys/devices/soc0/serial_number`;
-	msm_serial_hex=`printf %08X $msm_serial`
-	machine_type=`cat /sys/devices/soc0/machine`
-	product_string="$machine_type-$soc_hwplatform _SN:$msm_serial_hex"
-	echo "$product_string" > /config/usb_gadget/g1/strings/0x409/product
+	product_string=`cat /config/usb_gadget/g1/strings/0x409/product` 2> /dev/null
+	if [ "product_string" == "" ]; then
+		# Chip-serial is used for unique MSM identification in Product string
+		msm_serial=`cat /sys/devices/soc0/serial_number`;
+		msm_serial_hex=`printf %08X $msm_serial`
+		machine_type=`cat /sys/devices/soc0/machine`
+		product_string="$machine_type-$soc_hwplatform _SN:$msm_serial_hex"
+		echo "$product_string" > /config/usb_gadget/g1/strings/0x409/product
+	fi
 
 	# ADB requires valid iSerialNumber; if ro.serialno is missing, use dummy
-	serialnumber=`cat /config/usb_gadget/g1/strings/0x409/serialnumber` 2> /dev/null
+	serialnumber=`cat /config/usb_gadget/g1/strings/0x409/serialnumber 2> /dev/null`
 	if [ "$serialnumber" == "" ]; then
 		serialno=1234567
 		echo $serialno > /config/usb_gadget/g1/strings/0x409/serialnumber
 	fi
+	setprop vendor.usb.configfs 1
 fi
 
 #

@@ -1,12 +1,39 @@
+TARGET_DISABLE_IPACM := false
+
+ifeq ($(TARGET_USES_QMAA),true)
+ifneq ($(TARGET_USES_QMAA_OVERRIDE_DATA),true)
+	TARGET_DISABLE_IPACM := true
+endif #TARGET_USES_QMAA_OVERRIDE_DATA
+endif #TARGET_USES_QMAA
+
+BOARD_IPA_LOW_RAM_EXCP_LIST := bengal
+
+ifeq ($(TARGET_HAS_LOW_RAM),true)
+ifneq ($(call is-board-platform-in-list,$(BOARD_IPA_LOW_RAM_EXCP_LIST)),true)
+	TARGET_DISABLE_IPACM := true
+endif
+endif
+
+ifneq ($(TARGET_DISABLE_IPACM),true)
 BOARD_PLATFORM_LIST := msm8909
 BOARD_PLATFORM_LIST += msm8916
 BOARD_PLATFORM_LIST += msm8917
+BOARD_PLATFORM_LIST += qm215
+ifeq ($(TARGET_BOARD_SUFFIX),_gvmq)
+BOARD_PLATFORM_LIST += msmnile
+endif
 BOARD_IPAv3_LIST := msm8998
 BOARD_IPAv3_LIST += sdm845
 BOARD_IPAv3_LIST += sdm710
 BOARD_IPAv3_LIST += msmnile
+BOARD_IPAv3_LIST += kona
 BOARD_IPAv3_LIST += $(MSMSTEPPE)
 BOARD_IPAv3_LIST += $(TRINKET)
+BOARD_IPAv3_LIST += lito
+BOARD_IPAv3_LIST += atoll
+BOARD_IPAv3_LIST += bengal
+BOARD_ETH_BRIDGE_LIST := msmnile
+BOARD_ETH_BRIDGE_LIST += kona
 
 ifneq ($(call is-board-platform-in-list,$(BOARD_PLATFORM_LIST)),true)
 ifneq (,$(filter $(QCOM_BOARD_PLATFORMS),$(TARGET_BOARD_PLATFORM)))
@@ -19,14 +46,30 @@ include $(CLEAR_VARS)
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/../src
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../inc
 
-LOCAL_C_INCLUDES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
-LOCAL_ADDITIONAL_DEPENDENCIES := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
+LOCAL_HEADER_LIBRARIES := generated_kernel_headers
 
 LOCAL_CFLAGS := -DFEATURE_IPA_ANDROID
 LOCAL_CFLAGS += -DFEATURE_IPACM_RESTART
-LOCAL_CFLAGS += -DFEATURE_ETH_BRIDGE_LE
 
-LOCAL_CFLAGS += -DFEATURE_IPACM_HAL -Wall -Werror -Wno-error=macro-redefined
+ifeq ($(call is-board-platform-in-list,$(BOARD_ETH_BRIDGE_LIST)),true)
+LOCAL_CFLAGS += -DFEATURE_ETH_BRIDGE_LE
+endif
+
+LOCAL_CFLAGS += -DFEATURE_IPACM_HAL
+LOCAL_CFLAGS += \
+        -Wall \
+        -Werror \
+        -Wno-constant-logical-operand \
+        -Wno-format \
+        -Wno-missing-field-initializers \
+        -Wno-sign-compare \
+        -Wno-sometimes-uninitialized \
+        -Wno-unused-parameter \
+        -Wno-unused-value \
+        -Wno-unused-variable \
+        -Wno-writable-strings \
+        -Wno-error=implicit-fallthrough
+
 ifneq (,$(filter eng, $(TARGET_BUILD_VARIANT)))
 LOCAL_CFLAGS += -DDEBUG
 endif
@@ -63,6 +106,7 @@ LOCAL_SRC_FILES := IPACM_Main.cpp \
 		IPACM_LanToLan.cpp
 
 LOCAL_MODULE := ipacm
+LOCAL_INIT_RC := ipacm.rc
 LOCAL_CLANG := false
 LOCAL_MODULE_TAGS := optional
 
@@ -97,7 +141,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE       := $1
 LOCAL_SRC_FILES    := $1
 LOCAL_MODULE_CLASS := ipacm
-LOCAL_MODULE_TAGS  := debug
+LOCAL_MODULE_TAGS  := optional
 LOCAL_MODULE_PATH  := $(TARGET_OUT_ETC)
 include $(BUILD_PREBUILT)
 
@@ -113,5 +157,6 @@ LOCAL_MODULE_OWNER := ipacm
 include $(BUILD_PREBUILT)
 
 endif # $(TARGET_ARCH)
+endif
 endif
 endif

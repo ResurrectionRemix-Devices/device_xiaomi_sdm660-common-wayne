@@ -1,21 +1,22 @@
+#
+# Copyright (C) 2019 The LineageOS Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 LOCAL_PATH := $(call my-dir)
 
-EXTRA_VENDOR_LIBRARIES_32 := \
-    libaudioclient \
-    libaudiomanager \
-    libbinder \
-    libcamera_client \
-    libft2 \
-    libgui.vendor \
-    libharfbuzz_ng \
-    libheif \
-    libicui18n \
-    libicuuc \
-    libmedia \
-    libmediaextractor \
-    libmediametrics \
-    libminikin \
-    libsonivox
+include $(LOCAL_PATH)/vndk-ext-libs.mk
 
 define define-vndk-lib
 include $$(CLEAR_VARS)

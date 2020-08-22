@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<resources>
+	<!-- Whether the device supports Smart Pixels --> 
+	<bool name="config_supportSmartPixels">true</bool>
+
+	<!-- Whether device has physical tri state switch -->
+	<bool name="config_hasAlertSlider">true</bool>
+
+	<!-- Enable face auth when swiping security view  
+	  for popup cameras-->
+	<bool name="config_faceAuthOnSecurityView">true</bool>
+
+	<!-- Whether device has warp charging support -->
+	<bool name="config_hasWarpCharger">true</bool>
+
+	<!-- Whether device has Dash charging support -->
+	<bool name="config_hasDashCharger">true</bool>
+
+	<!-- Whether device supports variable refresh rate -->
+	<bool name="config_hasVariableRefreshRate">true</bool>
+	<!-- Default setting for refresh rate
+	  0 = Auto
+	  1 = 60HZ
+	  2 = 90Hz -->
+	<integer name="config_defaultVariableRefreshRateSetting">2</integer>
+
+	<!--Systeminfo for quick settings header -->
+	<string name="config_sysCPUTemp">/sys/class/thermal/thermal_zone0/temp</string> 
+	<string name="config_sysBatteryTemp">/sys/class/power_supply/battery/temp</string> 
+	<string name="config_sysGPUFreq">/sys/kernel/gpu/gpu_clock</string> 
+	<string name="config_sysGPULoad">/sys/kernel/gpu/gpu_busy</string> 
+	<integer name="config_sysCPUTempMultiplier">1000</integer> 
+	<integer name="config_sysBatteryTempMultiplier">10</integer>
+	
+	<!-- If Smart charging supported by kernel and device sepolicy -->
+	<bool name="config_smartChargingAvailable">true</bool>
+</resources>
